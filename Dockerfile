@@ -2,6 +2,7 @@ FROM alpine:3.3
 MAINTAINER zhouyq@goodrain.com
 
 ENV GOGS_CUSTOM /data/gogs
+ENV GOGS_VERSION 0.9.13
 ENV GOSU_VERSION 1.7
 ENV LANG C.UTF-8
 
@@ -14,7 +15,7 @@ RUN apk add --no-cache tzdata && \
     apk del --no-cache tzdata
 
 # add bash and libc6-compat
-RUN apk add --no-cache bash libc6-compat && \
+RUN apk add --no-cache bash libc6-compat curl && \
     ln -s /lib /lib64 && \
     sed -i -e "s/bin\/ash/bin\/bash/" /etc/passwd
 
@@ -24,21 +25,29 @@ RUN set -x \
         dpkg \
         gnupg \
         openssl \
-    && wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture)" \
-    && wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture).asc" \
+    && curl -s -fSL -o /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture)" \
+    && curl -s -fSL -o /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture).asc" \
     && export GNUPGHOME="$(mktemp -d)" \
     && gpg --keyserver ha.pool.sks-keyservers.net --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 \
     && gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu \
     && rm -r "$GNUPGHOME" /usr/local/bin/gosu.asc \
     && chmod +x /usr/local/bin/gosu \
     && gosu nobody true \
-    && apk del .gosu-deps
+    && apk del --no-cache .gosu-deps
 
 # add git user and group (addgroup -g 200 -S git)
 RUN sed -i -r 's/nofiles/git/' /etc/group && \
-    adduser -u 200 -D -S -G gti git
+    adduser -H -D -G git -u 200 -g 'Gogs Git User' git -h /data/git -s /bin/bash && \
+    passwd -u git
 
-RUN apk --no-cache --no-progress add ca-certificates  git linux-pam s6 curl openssh
+RUN apk --no-cache --no-progress add ca-certificates  git linux-pam s6 openssh
+
+# install gogs
+RUN mkdir -p /app && \
+    curl -s -fSL https://github.com/gogits/gogs/releases/download/v${GOGS_VERSION}/linux_amd64.tar.gz | tar -xzC /app && \
+    chown git.git /app -R
+
+
 
 COPY docker-entrypoint.sh /
 
