@@ -1,9 +1,10 @@
 #!/bin/bash
 
-Dirs="/data/gogs/data /data/gogs/conf /data/gogs/log /data/git /data/ssh"
+PermanentDir="/data"
+Dirs="gogs/data gogs/conf gogs/log git ssh"
 
 # Create VOLUME subfolder
 for d in $Dirs
 do
-  [ ! -d $d ] && mkdir -pv $d
+  [ ! -d ${PermanentDir}/${d} ] && mkdir -pv $PermanentDir/${d}
 done
